@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 
-type Palette = 'mono' | 'blue' | 'green' | 'purple'
+export type Palette = 'mono' | 'blue' | 'green' | 'purple'
 
 interface ThemeContextType {
   palette: Palette
@@ -11,22 +11,25 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
+const VALID_PALETTES: Palette[] = ['mono', 'blue', 'green', 'purple']
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [palette, setPalette] = useState<Palette>('blue')
+  const [palette, setPalette] = useState<Palette>('green')
 
   useEffect(() => {
     const saved = localStorage.getItem('dashboard-palette') as Palette
-    if (saved && ['mono', 'blue', 'green', 'purple'].includes(saved)) {
-      setPalette(saved)
-      document.documentElement.setAttribute('data-palette', saved)
-    } else {
-      document.documentElement.setAttribute('data-palette', 'blue')
-    }
+    const initial = saved && VALID_PALETTES.includes(saved) ? saved : 'green'
+    setPalette(initial)
+    // Aplica paleta y dark mode al <html>
+    document.documentElement.setAttribute('data-palette', initial)
+    document.documentElement.classList.add('dark')
   }, [])
 
   const handleSetPalette = (newPalette: Palette) => {
     setPalette(newPalette)
     document.documentElement.setAttribute('data-palette', newPalette)
+    // Mantener dark mode al cambiar paleta
+    document.documentElement.classList.add('dark')
     localStorage.setItem('dashboard-palette', newPalette)
   }
 

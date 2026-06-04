@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ConsultaPorTipo, CorreosPorDia } from '@/lib/types'
@@ -20,35 +19,34 @@ interface ChartsProps {
   correosPorDia: CorreosPorDia[]
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Trunca un string y añade "…" si supera maxLen caracteres */
 function truncar(text: string, maxLen = 22): string {
   if (!text) return ''
   const str = String(text)
   return str.length > maxLen ? str.slice(0, maxLen) + '…' : str
 }
 
-/** Extrae el nombre limpio del tipo (limpia JSON/objetos si los hay) */
 function limpiarTipo(raw: string): string {
   if (!raw) return ''
   const str = String(raw).trim()
-  // Si parece JSON o contiene comillas/llaves, intenta parsear
   if (str.startsWith('{') || str.startsWith('"')) {
     try {
       const parsed = JSON.parse(str)
-      // Busca campos comunes de nombre
       const nombre =
         parsed?.tipo || parsed?.nombre || parsed?.name || parsed?.categoria || parsed?.category
       if (nombre) return String(nombre)
     } catch {
-      // no es JSON válido, continuamos
+      // no es JSON válido
     }
   }
   return str
 }
 
-// ─── Tooltip personalizado ──────────────────────────────────────────────────
+// Color fijo blanco para todas las etiquetas de ejes — siempre visible en dark
+const TICK_COLOR = 'rgba(255,255,255,0.75)'
+
+// ─── Tooltip personalizado ───────────────────────────────────────────────────
 
 function TooltipPersonalizado({
   active,
@@ -77,7 +75,7 @@ function TooltipPersonalizado({
   return null
 }
 
-// ─── Custom Y-Axis Tick ─────────────────────────────────────────────────────
+// ─── Custom Y-Axis Tick ──────────────────────────────────────────────────────
 
 interface CustomTickProps {
   x?: number
@@ -86,7 +84,7 @@ interface CustomTickProps {
   maxWidth?: number
 }
 
-function CustomYAxisTick({ x = 0, y = 0, payload, maxWidth = 160 }: CustomTickProps) {
+function CustomYAxisTick({ x = 0, y = 0, payload }: CustomTickProps) {
   if (!payload?.value) return null
 
   const label = limpiarTipo(payload.value)
@@ -103,7 +101,7 @@ function CustomYAxisTick({ x = 0, y = 0, payload, maxWidth = 160 }: CustomTickPr
         textAnchor="end"
         fontSize={11}
         fontFamily="inherit"
-        fill="var(--muted-foreground)"
+        fill={TICK_COLOR}
         style={{ cursor: needsTooltip ? 'help' : 'default' }}
       >
         {truncated}
@@ -112,16 +110,14 @@ function CustomYAxisTick({ x = 0, y = 0, payload, maxWidth = 160 }: CustomTickPr
   )
 }
 
-// ─── Componente principal ───────────────────────────────────────────────────
+// ─── Componente principal ────────────────────────────────────────────────────
 
 export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
-  // Limpiar tipos antes de pasarlos al gráfico
   const consultasLimpias = consultasPorTipo.map((item) => ({
     ...item,
     tipoLimpio: limpiarTipo(String(item.tipo)),
   }))
 
-  // Formatear fecha para el gráfico de área
   const correosPorDiaFormateados = correosPorDia.map((item) => ({
     ...item,
     fechaCorta: new Date(item.fecha).toLocaleDateString('es-ES', {
@@ -130,7 +126,6 @@ export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
     }),
   }))
 
-  // Altura dinámica: mínimo 280px, +32px por cada barra extra sobre 5
   const alturaBarras = Math.max(280, consultasLimpias.length * 44)
 
   return (
@@ -146,11 +141,7 @@ export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="pl-0 pr-4">
-          {/* Scroll vertical si hay muchas categorías */}
-          <div
-            className="overflow-y-auto"
-            style={{ maxHeight: 360, paddingLeft: 0 }}
-          >
+          <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
             <div style={{ height: alturaBarras, minHeight: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -160,8 +151,8 @@ export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
                 >
                   <defs>
                     <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.95} />
-                      <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.55} />
+                      <stop offset="0%"   stopColor="var(--color-chart-1)" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0.55} />
                     </linearGradient>
                   </defs>
 
@@ -169,20 +160,18 @@ export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
                     strokeDasharray="3 3"
                     horizontal={false}
                     vertical={true}
-                    stroke="var(--border)"
+                    stroke="var(--color-border)"
                     opacity={0.25}
                   />
 
-                  {/* Eje X (valores numéricos) */}
                   <XAxis
                     type="number"
-                    tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                    tick={{ fill: TICK_COLOR, fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                     allowDecimals={false}
                   />
 
-                  {/* Eje Y con tick personalizado que muestra tipos completos */}
                   <YAxis
                     dataKey="tipoLimpio"
                     type="category"
@@ -193,12 +182,8 @@ export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
                   />
 
                   <Tooltip
-                    content={
-                      <TooltipPersonalizado
-                        unidad="consultas"
-                      />
-                    }
-                    cursor={{ fill: 'var(--muted)', opacity: 0.08 }}
+                    content={<TooltipPersonalizado unidad="consultas" />}
+                    cursor={{ fill: 'var(--color-muted)', opacity: 0.08 }}
                   />
 
                   <Bar
@@ -233,29 +218,29 @@ export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
               >
                 <defs>
                   <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.4} />
-                    <stop offset="50%" stopColor="var(--chart-2)" stopOpacity={0.15} />
-                    <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} />
+                    <stop offset="0%"   stopColor="var(--color-chart-2)" stopOpacity={0.4} />
+                    <stop offset="50%"  stopColor="var(--color-chart-2)" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="var(--color-chart-2)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
 
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="var(--border)"
+                  stroke="var(--color-border)"
                   opacity={0.3}
                   vertical={false}
                 />
 
                 <XAxis
                   dataKey="fechaCorta"
-                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                  tick={{ fill: TICK_COLOR, fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                   dy={10}
                 />
 
                 <YAxis
-                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                  tick={{ fill: TICK_COLOR, fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                   dx={-10}
@@ -265,7 +250,7 @@ export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
                 <Tooltip
                   content={<TooltipPersonalizado unidad="correos" />}
                   cursor={{
-                    stroke: 'var(--chart-2)',
+                    stroke: 'var(--color-chart-2)',
                     strokeWidth: 1,
                     strokeDasharray: '4 4',
                   }}
@@ -274,18 +259,18 @@ export function Charts({ consultasPorTipo, correosPorDia }: ChartsProps) {
                 <Area
                   type="monotone"
                   dataKey="cantidad"
-                  stroke="var(--chart-2)"
+                  stroke="var(--color-chart-2)"
                   strokeWidth={2.5}
                   fill="url(#areaGradient)"
                   dot={{
-                    fill: 'hsl(var(--card))',
-                    stroke: 'var(--chart-2)',
+                    fill: 'var(--color-card)',
+                    stroke: 'var(--color-chart-2)',
                     strokeWidth: 2,
                     r: 4,
                   }}
                   activeDot={{
-                    fill: 'var(--chart-2)',
-                    stroke: 'hsl(var(--card))',
+                    fill: 'var(--color-chart-2)',
+                    stroke: 'var(--color-card)',
                     strokeWidth: 2,
                     r: 6,
                   }}
