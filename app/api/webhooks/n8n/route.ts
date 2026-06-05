@@ -80,55 +80,79 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     
-    // Validar con Zod
+    // 1. Validar con Zod los datos crudos del webhook
     const resultado = webhookSchema.safeParse(body)
     
     if (!resultado.success) {
-      const errores = resultado.error.errors.map(e => ({
-        campo: e.path.join('.'),
-        mensaje: e.message
-      }))
-      
       return NextResponse.json(
-        { 
-          error: 'Datos de entrada inválidos',
-          detalles: errores
-        },
+        { error: 'Datos de entrada inválidos', detalles: resultado.error.errors },
         { status: 400 }
       )
     }
     
     const payload = resultado.data
 
-    // Limpiar el remitente
+    // 2. CORRECCIÓN DE FECHA: Extraer solo 'YYYY-MM-DD' del ISO String para la columna DATE
+    const fechaLimpia = payload.fecha.split('T')[0]
+
+    // 3. CORRECCIÓN DE JSON ESCAPADO: Parsear los strings JSON de n8n para extraer el texto plano
+    let tipoConsultaLimpio = payload.tipo_consulta
+    let respuestaIaLimpia = payload.respuesta_ia
+
+    // Intentamos extraer el valor real de tipo_consulta si viene serializado
+    try {
+      const objetoConsulta = JSON.parse(payload.tipo_consulta)
+      tipoConsultaLimpio = objetoConsulta.tipo || payload.tipo_consulta
+    } catch {
+      // Si no es un JSON, se queda con el string original
+    }
+
+    // Intentamos extraer la "respuesta_sugerida" del JSON de la IA
+    try {
+      const objetoRespuesta = JSON.parse(payload.respuesta_ia)
+      respuestaIaLimpia = objetoRespuesta.respuesta_sugerida || payload.respuesta_ia
+    } catch {
+      // Si no es un JSON, se queda con el string original
+    }
+
+    // 4. CORRECCIÓN DE INCONSISTENCIAS ("N/A")
+    // Si razon_escalado es "N/A", lo convertimos a null (ya que en SQL la columna acepta nulos)
+    const razonEscaladoLimpia = payload.razon_escalado === 'N/A' ? null : payload.razon_escalado
+    
+    // Si seccion_aplicada es "N/A" o viene vacía, le dejamos un valor por defecto permitido por el NOT NULL
+    const seccionAplicadaLimpia = (!payload.seccion_aplicada || payload.seccion_aplicada === 'N/A') 
+      ? 'General / No especificado' 
+      : payload.seccion_aplicada
+
+    // Limpiar el remitente con tu función existente
     const { email: emailLimpio, nombre } = limpiarRemitente(payload.remitente)
     const remitenteFormateado = nombre ? `${nombre} (${emailLimpio})` : emailLimpio
 
-    // Crear cliente Supabase
+    // Crear cliente Supabase e Insertar los datos perfectamente formateados
     const supabase = await createRouteClient()
 
-    // Insertar en Supabase
     const { data, error } = await supabase
       .from('correos_ia')
       .insert([
         {
-          fecha: payload.fecha,
+          fecha: fechaLimpia,                 // Ahora es '2026-06-05' -> Compatible con DATE
           remitente: remitenteFormateado,
-          tipo_consulta: payload.tipo_consulta || 'Sin especificar',
+          tipo_consulta: tipoConsultaLimpio,   // Ahora es 'queja' -> Texto limpio
           prioridad: payload.prioridad,
           escalado: payload.escalado,
-          respuesta_ia: payload.respuesta_ia || 'Sin respuesta',
-          razon_escalado: payload.razon_escalado || null,
-          seccion_aplicada: payload.seccion_aplicada || 'Sin especificar',
+          respuesta_ia: respuestaIaLimpia,     // Ahora es el texto de la respuesta sugerida -> Texto limpio
+          razon_escalado: razonEscaladoLimpia, // Ahora es null si no aplica
+          seccion_aplicada: seccionAplicadaLimpia, // Cumple con el NOT NULL sin romper lógicas
         },
       ])
       .select('id')
       .single()
 
     if (error) {
-      console.error('Error insertando en Supabase:', error)
+      // Importante: Imprimir el error exacto de Supabase en los logs de tu servidor para auditoría
+      console.error('Error detallado de Supabase:', error.message, error.details, error.hint)
       return NextResponse.json(
-        { error: 'Error guardando el correo en la base de datos' },
+        { error: 'Error guardando el correo en la base de datos', detalles: error.message },
         { status: 500 }
       )
     }
@@ -138,16 +162,12 @@ export async function POST(request: Request) {
         success: true,
         mensaje: 'Correo procesado correctamente',
         id: data.id,
-        remitente_procesado: remitenteFormateado,
       },
       { status: 201 }
     )
   } catch (error) {
     console.error('Error procesando webhook de n8n:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
 
