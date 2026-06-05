@@ -1,94 +1,118 @@
-# v0-analytics-dashboard
+# Asistente Correo
 
-Dashboard de analítica para automatización con n8n, IA y Supabase. El proyecto está basado en Next.js y fue generado con v0.
+Dashboard de analítica avanzada para el monitoreo y gestión de correos electrónicos procesados automáticamente mediante **n8n**, **Inteligencia Artificial (Ollama + RAG)** y **Supabase**. El frontend está construido con Next.js y estilizado meticulosamente a través de v0.
 
-## Tecnologías
+---
 
-- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS.
-- UI: componentes propios en `components/ui` y `components/dashboard`.
-- Datos: Supabase con SDK modular (`@supabase/ssr` y `@supabase/supabase-js`).
-- Gráficas: Recharts.
-- Despliegue: Vercel.
+## 🚀 Tecnologías
 
-## Base de Datos
+El ecosistema del proyecto está compuesto por las siguientes tecnologías:
 
-La estructura de la base vive en [supabase/schema.sql](supabase/schema.sql). El esquema principal es la tabla `correos_ia`, usada por el dashboard y por el webhook de n8n.
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS
+- **UI & Componentes:** Shadcn/ui adaptado de forma personalizada en `components/ui` y `components/dashboard`
+- **Base de Datos & Auth:** Supabase utilizando el SDK modular moderno (`@supabase/ssr` y `@supabase/supabase-js`)
+- **Visualización de Datos:** Recharts para gráficos interactivos y dinámicos
+- **Despliegue:** Optimizado para Vercel
 
-## Estructura Principal
+---
 
-- [app/page.tsx](app/page.tsx): ensambla el sidebar y el contenido principal.
-- [app/api/correos/route.ts](app/api/correos/route.ts): expone los correos procesados y calcula métricas.
-- [app/api/webhooks/n8n/route.ts](app/api/webhooks/n8n/route.ts): recibe los datos del flujo de n8n.
-- [components/dashboard](components/dashboard): sidebar, tarjetas, gráficas y tabla.
-- [utils/supabase](utils/supabase): clientes de Supabase para browser, servidor y middleware.
-- [lib/types.ts](lib/types.ts): tipos compartidos del dashboard.
-- [supabase/schema.sql](supabase/schema.sql): SQL de tablas, índices y políticas.
+## 📂 Estructura del Proyecto
 
-## Variables de Entorno
+A continuación se detallan los componentes y directorios principales del repositorio:
 
-Copia [.env.example](.env.example) a [.env.local](.env.local) en la raíz del proyecto y completa estas variables si vas a usar Supabase:
+| Ruta | Descripción |
+|------|-------------|
+| `app/page.tsx` | Vista principal del Dashboard. Ensambla la barra lateral y las secciones analíticas. |
+| `app/api/correos/route.ts` | API interna que expone los registros procesados de la base de datos y calcula métricas en tiempo real. |
+| `app/api/webhooks/n8n/route.ts` | Endpoint (Webhook) encargado de recibir, validar (vía Zod) y limpiar los datos enviados por el flujo de n8n. |
+| `components/dashboard/` | Lógica visual modular del sistema: tarjetas de métricas, gráficos de Recharts y tablas de datos. |
+| `flujo_n8n/` | Archivos de configuración `.json` que componen el flujo del Asistente de Correos. |
+| `utils/supabase/` | Configuración de los clientes de Supabase para Browser, Server Components y Middleware. |
+| `lib/types.ts` | Definiciones y tipados estáticos compartidos a lo largo del Dashboard. |
+| `supabase/schema.sql` | Estructura SQL, índices de rendimiento y políticas de seguridad (RLS). |
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+---
+
+## 🤖 Flujo de Automatización (n8n)
+
+Dentro de la carpeta `flujo_n8n/` encontrarás **3 archivos `.json`** listos para ser importados en tu instancia de n8n. Estos nodos estructuran el flujo del **Asistente de Correos**, encargándose de:
+
+1. Recibir y leer los correos entrantes de Gmail.
+2. Procesar el texto mediante modelos de lenguaje (LLM) locales con Ollama, enriqueciendo el contexto con técnicas RAG.
+3. Clasificar la urgencia/tipo de consulta y generar una respuesta sugerida automáticamente.
+4. Notificar los resultados enviando un payload `POST` hacia este Dashboard.
+
+---
+
+## 🗄️ Base de Datos (Supabase)
+
+La persistencia de los datos analíticos se gestiona en Postgres. El archivo de inicialización se encuentra en `supabase/schema.sql`.
+
+El núcleo del almacenamiento reside en la tabla `correos_ia`, la cual cuenta con:
+
+- Políticas **RLS (Row Level Security)** activas para asegurar las inserciones remotas del Webhook y lecturas públicas controladas.
+- **Índices optimizados** en campos de alta frecuencia de consulta: `fecha`, `prioridad`, `escalado` y `created_at`.
+
+---
+
+## ⚙️ Variables de Entorno
+
+Copia el archivo `.env.example` a `.env.local` en la raíz del proyecto y completa las credenciales con los datos de tu proyecto de Supabase:
+
+```env
+# URL base de tu proyecto Supabase (sin /rest/v1/ al final)
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+
+# Llave pública de acceso (anon key)
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=tu_anon_key_aqui
 ```
 
-## Instalación y Ejecución
+> ⚠️ **Nota importante:** El SDK de Supabase autocompleta internamente los paths REST. Si añades sufijos de enrutamiento a la URL base, Supabase rechazará las conexiones devolviendo un error HTTP 500 (`Invalid path specified`).
 
-Ruta base del proyecto:
+---
 
-```bash
-D:\PROYECTOS VSCODE\v0-analytics-dashboard
-```
+## 🛠️ Instalación y Ejecución
 
-1. Instalar pnpm si no está disponible:
+Asegúrate de ejecutar los comandos desde la raíz del proyecto.
+
+### 1. Instalar pnpm (si no está instalado globalmente)
 
 ```bash
 npm install -g pnpm
 ```
 
-2. Instalar dependencias. Ejecutar en:
-
-```bash
-D:\PROYECTOS VSCODE\v0-analytics-dashboard
-```
+### 2. Instalar dependencias
 
 ```bash
 pnpm install
 ```
 
-3. Levantar el entorno local. Ejecutar en:
-
-```bash
-D:\PROYECTOS VSCODE\v0-analytics-dashboard
-```
+### 3. Levantar entorno de desarrollo local
 
 ```bash
 pnpm dev
 ```
 
-4. Validar build de producción. Ejecutar en:
+El dashboard estará disponible en [http://localhost:3000](http://localhost:3000).
 
-```bash
-D:\PROYECTOS VSCODE\v0-analytics-dashboard
-```
+### 4. Compilar para producción
 
 ```bash
 pnpm build
 ```
 
-5. Ejecutar en modo producción local. Ejecutar en:
-
-```bash
-D:\PROYECTOS VSCODE\v0-analytics-dashboard
-```
+### 5. Iniciar modo producción en local
 
 ```bash
 pnpm start
 ```
 
-## Notas
+---
 
-- El proyecto funciona en modo demo si Supabase no está configurado.
-- El bloque de navegación del dashboard está organizado por secciones ancladas en la misma página.
-- La política de pnpm del repositorio permite compilar `sharp`, necesario para el build de Next en este entorno.
+## 💡 Notas de Interés
+
+- **Modo Demo:** Si las variables de Supabase no están configuradas en el entorno local, el sistema renderizará datos estáticos de demostración para pruebas de interfaz.
+
+- **Navegación Intrapágina:** El menú lateral interactúa directamente mediante anclajes dinámicos optimizados en la misma pantalla.
+
+- **Compilación de Imágenes (`sharp`):** La configuración de dependencias permite compilar de forma nativa la librería `sharp`, indispensable para la optimización y renderizado eficiente de imágenes en Next.js bajo entornos restringidos.

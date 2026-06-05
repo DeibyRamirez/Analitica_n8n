@@ -1,0 +1,810 @@
+{
+  "name": "Agente de Correos",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1216,
+        144
+      ],
+      "id": "12cd69e1-9fa4-4d9d-b8da-b0bec0c9d250",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "T2Hf4Aks61DYWn7Z",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Correo a analizar:\nRemitente: {{ $('Gmail Trigger').item.json.From }}\nAsunto: {{ $('Gmail Trigger').item.json.Subject }}\nCuerpo: {{ $('Gmail Trigger').item.json.snippet }}",
+        "options": {
+          "systemMessage": "=Eres el asistente de PQR de TAQUION FAST SERVICE (mvp_fast_service). \n\nINSTRUCCIÓN CRÍTICA:\nPara responder, utiliza SIEMPRE la herramienta de búsqueda de políticas disponible. No inventes procedimientos. Si la información no está en las políticas, marca 'escalar': true.\n\nCONTACTO OFICIAL: taquionsystem@gmail.com | Taquion_Saas | 3117676493\n\nCLASIFICACIÓN:\n- tipo: \"consulta\"(info general) | \"queja\"(producto mal/equivocado/faltante) | \"solicitud\"(devolución/reembolso) | \"spam\"\n- prioridad: \"alta\"(legal/fraude/vencido) | \"media\"(devolución estándar) | \"baja\"(info/spam)\n- escalar true SI: lenguaje legal, fraude, producto especial/perecedero, caso no cubierto en políticas.\n- escalar false SI: consulta general, devolución estándar sección 5.1, spam.\n\nRESPUESTA: profesional, cita la sección de la política que encontraste, incluye contacto oficial y guía los pasos de la sección 5.3 si es una devolución.\n\nResponde ÚNICAMENTE con este JSON sin texto adicional:\n{\"tipo\":\"\",\"prioridad\":\"\",\"confianza\":\"alta|baja\",\"seccion_aplicada\":\"\",\"respuesta_sugerida\":\"\",\"escalar\":false,\"razon_escalado\":\"\"}",
+          "enableStreaming": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -384,
+        144
+      ],
+      "id": "42d53cd1-c641-4b2b-b335-92783955d503",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5:7b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        400
+      ],
+      "id": "3f578972-04b7-49d7-bcb6-1644813d7b9c",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "pzfZ3NmewlsgEMqI",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "=={{ $json.escalar === false }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "df493864-db28-4168-9269-7172fd0e97ca"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3a756e29-d166-47d4-8ff0-7aca63feeda4",
+                    "leftValue": "=={{ $json.escalar === true }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        64
+      ],
+      "id": "b3a6a9da-87a5-4350-b493-af261159d75a",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "message": "={{ $json.html_final }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "8887d6c2-87da-4626-b4a7-01a7edc24eba",
+      "name": "Reply to a message",
+      "webhookId": "fa7e62e1-7bdf-405c-b888-f868577aba7e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "T2Hf4Aks61DYWn7Z",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8707627975:AAE4fhqt5zCGEGBJJ1zUd261DgFlKZoI1wI/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"6846427282\",\n  \"text\": \"Correo requiere atención humana.\\nDe: {{ $json.remitente }}\\nTipo: {{ $json.tipo }}\\nPrioridad: {{ $json.prioridad }}\\nRazón: {{ $json.razon }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        720,
+        256
+      ],
+      "id": "bd6041c1-1949-49f8-90df-e9f89da6faef",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16duQ3ThXIfW1m2YlmWXSHngsFpn8SRJVVoTU6cxdEMg",
+          "mode": "list",
+          "cachedResultName": "Log Agente Correos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16duQ3ThXIfW1m2YlmWXSHngsFpn8SRJVVoTU6cxdEMg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16duQ3ThXIfW1m2YlmWXSHngsFpn8SRJVVoTU6cxdEMg/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha": "={{ $now }}",
+            "Remitente": "={{ $('Codigo').item.json.remitente }}",
+            "Tipo": "={{ $('Codigo').item.json.tipo }}",
+            "Prioridad": "={{ $('Codigo').item.json.prioridad }}",
+            "Escalado": "={{ $('Codigo').item.json.escalar }}",
+            "Respuesta": "={{ $('Codigo').item.json.respuesta }}",
+            "Razon_Escalado": "={{ $('Codigo').item.json.razon }}",
+            "Seccion_Aplicada": "={{ $('Codigo').item.json.seccion_aplicada }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Fecha",
+              "displayName": "Fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Remitente",
+              "displayName": "Remitente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tipo",
+              "displayName": "Tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Prioridad",
+              "displayName": "Prioridad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Escalado",
+              "displayName": "Escalado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Respuesta",
+              "displayName": "Respuesta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Razon_Escalado",
+              "displayName": "Razon_Escalado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Seccion_Aplicada",
+              "displayName": "Seccion_Aplicada",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1040,
+        144
+      ],
+      "id": "cbeed74e-baaf-450b-94c5-4be951edc461",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IeT24pB8nGXpYzpO",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const input = $input.first().json;\n  \n  // RAMA CACHÉ: la respuesta ya viene como objeto parseado\n  if (input.cache_hit === true && input.respuesta && typeof input.respuesta === 'object') {\n    const r = input.respuesta;\n    return [{\n      json: {\n        tipo:             r.tipo             || 'consulta',\n        prioridad:        r.prioridad        || 'media',\n        confianza:        r.confianza        || 'baja',\n        seccion_aplicada: r.seccion_aplicada || '',\n        respuesta:        r.respuesta_sugerida || r.respuesta || '',\n        escalar:          r.escalar          || false,\n        razon:            r.razon_escalado   || '',\n        remitente:        $('Gmail Trigger').first().json.From || '',\n        desde_cache:      true\n      }\n    }];\n  }\n\n  // RAMA AI AGENT: parsea el output del modelo\n  const raw = input.output ?? '{}';\n  const texto = typeof raw === 'object' ? JSON.stringify(raw) : raw;\n  const match = texto.match(/\\{[\\s\\S]*\\}/);\n  if (!match) throw new Error('No JSON found in: ' + texto.substring(0, 100));\n\n  const limpio = match[0]\n    .replace(/\\\\'/g, \"'\")\n    .replace(/\\t/g, ' ')\n    .replace(/[\\u0000-\\u001F\\u007F]/g, ' ')\n    .replace(/\\n/g, '\\\\n');\n\n  let json;\n  try {\n    json = JSON.parse(limpio);\n  } catch(e2) {\n    json = {\n      tipo:             (texto.match(/\"tipo\"\\s*:\\s*\"([^\"]+)\"/) || [])[1] || 'consulta',\n      prioridad:        (texto.match(/\"prioridad\"\\s*:\\s*\"([^\"]+)\"/) || [])[1] || 'media',\n      confianza:        (texto.match(/\"confianza\"\\s*:\\s*\"([^\"]+)\"/) || [])[1] || 'baja',\n      seccion_aplicada: (texto.match(/\"seccion_aplicada\"\\s*:\\s*\"([^\"]+)\"/) || [])[1] || '',\n      respuesta_sugerida:(texto.match(/\"respuesta_sugerida\"\\s*:\\s*\"([\\s\\S]+?)\"(?:\\s*,|\\s*\\})/) || [])[1] || '',\n      escalar:          texto.includes('\"escalar\": true') || texto.includes('\"escalar\":true'),\n      razon_escalado:   (texto.match(/\"razon_escalado\"\\s*:\\s*\"([^\"]*)\"/) || [])[1] || ''\n    };\n  }\n\n  return [{\n    json: {\n      tipo:             json.tipo             || 'consulta',\n      prioridad:        json.prioridad        || 'media',\n      confianza:        json.confianza        || 'baja',\n      seccion_aplicada: json.seccion_aplicada || '',\n      respuesta:        json.respuesta_sugerida || '',\n      escalar:          json.escalar          || false,\n      razon:            json.razon_escalado   || '',\n      remitente:        $('Gmail Trigger').first().json.From || '',\n      desde_cache:      false\n    }\n  }];\n\n} catch(e) {\n  return [{\n    json: {\n      tipo:             'error',\n      prioridad:        'alta',\n      confianza:        'baja',\n      seccion_aplicada: '',\n      respuesta:        '',\n      escalar:          true,\n      razon:            'Error al procesar respuesta: ' + e.message,\n      remitente:        $('Gmail Trigger').first().json.From || '',\n      desde_cache:      false\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        80
+      ],
+      "id": "22ba80d5-7570-4f0e-8a9a-a5ec80307dc6",
+      "name": "Codigo"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Gmail Trigger').item.json.From }}",
+        "contextWindowLength": 6
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        432
+      ],
+      "id": "696f26f4-8300-4b72-8bff-caa028c9d6d4",
+      "name": "Simple Memory1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Llamamos directamente al nodo Codigo por nombre — sin depender del input\nconst datos = $('Codigo').first().json;\n\nconst respuesta = datos.respuesta || 'No se generó una respuesta.';\nconst seccion   = datos.seccion_aplicada || 'Información General';\nconst tipo      = datos.tipo || 'Soporte';\n\n// Ticket ID y Fecha\nconst ticketId = 'TQ-' + Date.now().toString(36).toUpperCase();\nconst fecha = new Date().toLocaleDateString('es-CO', { \n  day: '2-digit', \n  month: 'long', \n  year: 'numeric', \n  timeZone: 'America/Bogota' \n});\n\nconst html = `\n<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2c2c2c;\">\n  <div style=\"background: #1a1a2e; padding: 20px 24px; border-radius: 8px 8px 0 0;\">\n    <span style=\"color: #ffffff; font-size: 20px; font-weight: bold; letter-spacing: 1px;\">TAQUION</span>\n    <span style=\"color: #a0a8c0; font-size: 12px; margin-left: 8px;\">Fast Service</span>\n  </div>\n  <div style=\"border: 1px solid #e0e0e0; border-top: none; padding: 28px 24px; border-radius: 0 0 8px 8px;\">\n    <p style=\"color: #555; font-size: 13px; margin: 0 0 16px;\">Ticket: <strong>${ticketId}</strong> · ${fecha}</p>\n    <p style=\"font-size: 16px; line-height: 1.7; color: #2c2c2c; margin: 0 0 20px;\">${respuesta}</p>\n    <div style=\"background: #f5f7fa; border-left: 3px solid #4a6fa5; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 0 0 24px;\">\n      <p style=\"font-size: 12px; color: #666; margin: 0;\">Referencia política aplicada: <strong>${seccion}</strong></p>\n    </div>\n    <hr style=\"border: none; border-top: 1px solid #eee; margin: 0 0 20px;\">\n    <p style=\"font-size: 12px; color: #888; margin: 0;\">\n      Soporte: <a href=\"mailto:taquionsystem@gmail.com\" style=\"color: #4a6fa5;\">taquionsystem@gmail.com</a> \n      · WhatsApp: <a href=\"https://wa.me/573117676493\" style=\"color: #4a6fa5;\">311 767 6493</a>\n      · Instagram: <a href=\"https://instagram.com/Taquion_Saas\" style=\"color: #4a6fa5;\">@Taquion_Saas</a>\n    </p>\n    <p style=\"font-size: 11px; color: #bbb; margin: 8px 0 0;\">Este correo fue generado automáticamente para los procesos de ${tipo}.</p>\n  </div>\n</div>`;\n\nreturn { \n  json: {\n    html_final: html, \n    ticket_id: ticketId,\n    destinatario: datos.remitente || 'usuario@ejemplo.com'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "70f08c75-33fb-4f07-b956-d5338afd0eae",
+      "name": "Generar Plantilla HTML"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c322e776-7d11-4deb-8c9f-0d1612874cea",
+              "leftValue": "={{ $json.labels }}",
+              "rightValue": "SPAM",
+              "operator": {
+                "type": "array",
+                "operation": "notContains",
+                "rightType": "any"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -1008,
+        144
+      ],
+      "id": "12e4ac1b-527b-4fcc-9e6d-3f85929089f7",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://analitica-n8n.vercel.app/api/webhooks/n8n",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"fecha\": \"{{ $node[\"Gmail Trigger\"].json[\"date\"] || new Date().toISOString() }}\",\n  \"remitente\": \"{{ $('Codigo').item.json[\"remitente\"] || \"desconocido\" }}\",\n  \"tipo_consulta\": {{ JSON.stringify($node[\"AI Agent\"].json[\"output\"] || \"\") }},\n  \"prioridad\": \"{{ $node[\"Codigo\"].json[\"prioridad\"] || \"media\" }}\",\n  \"escalado\": {{ JSON.stringify($node[\"Codigo\"].json[\"escalado\"] || false) }},\n  \"respuesta_ia\": {{ JSON.stringify($node[\"AI Agent\"].json[\"output\"] || \"\") }},\n  \"razon_escalado\": \"{{ $node[\"Codigo\"].json[\"razon_escalado\"] || \"N/A\" }}\",\n  \"seccion_aplicada\": \"{{ $node[\"Codigo\"].json[\"seccion_aplicada\"] || \"N/A\" }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1248,
+        144
+      ],
+      "id": "bcf26ce5-9861-4056-abe7-fabb8049c6dc",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/cache-semantico",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"accion\": \"consultar\",\n  \"texto\": \"={{ $('Gmail Trigger').item.json.Subject + '. ' + $('Gmail Trigger').item.json.snippet }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -800,
+        144
+      ],
+      "id": "2c9fee23-d180-4728-8107-3e4c22bb7aa6",
+      "name": "Consultar Cache"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c0088a0b-2330-48f6-901d-ec85565dea34",
+              "leftValue": "=={{ $json.cache_hit }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -544,
+        48
+      ],
+      "id": "44425a4c-28a2-466d-91df-61cde1e939d5",
+      "name": "¿Cache Hit?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/cache-semantico",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "guardar"
+            },
+            {
+              "name": "texto",
+              "value": "=={{ $('Gmail Trigger').item.json.Subject + '. ' + $('Gmail Trigger').item.json.snippet }}"
+            },
+            {
+              "name": "embedding",
+              "value": "=={{ $('Consultar Cache').item.json.embedding }}"
+            },
+            {
+              "name": "respuesta",
+              "value": "=={{ $('AI Agent').item.json.output }}"
+            },
+            {
+              "name": "tipo",
+              "value": "=={{ $('Codigo').item.json.tipo }}"
+            },
+            {
+              "name": "seccion",
+              "value": "=={{ $('Codigo').item.json.seccion_aplicada }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        288,
+        192
+      ],
+      "id": "ead4c482-decb-4480-a72a-b64e85a008af",
+      "name": "Guardar Cache"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Úsalo para consultar información sobre devoluciones, procesos de entrega y términos legales de Taquion\". Si no pones una descripción clara, el Agente no sabrá cuándo usar esta herramienta.",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        368
+      ],
+      "id": "15998264-7a3e-4a07-897b-2dd1192f9eb8",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "JcC2kpFbMdeSsMoL",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        16,
+        496
+      ],
+      "id": "0fa46dbb-6ea3-45cb-af9d-18347d7668bd",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "pzfZ3NmewlsgEMqI",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8d1d5a6c-9b61-4093-9be7-bb2506b75cd1",
+              "leftValue": "=={{ $json.desde_cache }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        128,
+        80
+      ],
+      "id": "761d6dae-d8ef-4f91-9e0a-f66e58ecaaa9",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Codigo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Generar Plantilla HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Reply to a message": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Codigo": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Plantilla HTML": {
+      "main": [
+        [
+          {
+            "node": "Reply to a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Consultar Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Cache": {
+      "main": [
+        [
+          {
+            "node": "¿Cache Hit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cache Hit?": {
+      "main": [
+        [
+          {
+            "node": "Codigo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Cache": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ec3f89f6-f816-4d27-bae5-e77b5b84d2fb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "608c753f374032eedb8b6c161b47f65b7d071087750ae106adef96cd59f7df75"
+  },
+  "id": "I4svT3kAjVdWHrNW",
+  "tags": [
+    {
+      "updatedAt": "2026-05-21T19:22:45.262Z",
+      "createdAt": "2026-05-21T19:22:45.262Z",
+      "id": "RQTRWaGCFoXSFrRN",
+      "name": "Main"
+    },
+    {
+      "updatedAt": "2026-05-21T19:22:50.634Z",
+      "createdAt": "2026-05-21T19:22:50.634Z",
+      "id": "16YiaLP9DPYYuJzb",
+      "name": "Flujo Principal"
+    }
+  ]
+}

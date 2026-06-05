@@ -1,0 +1,329 @@
+{
+  "name": "Flujo - RAG Conocimiento Mejoras",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks"
+            }
+          ]
+        }
+      },
+      "id": "bb498ab4-08d3-4d26-a22c-b02b544aa913",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -944,
+        48
+      ],
+      "notes": "Ejecuta cada semana para re-indexar si el doc cambia. Puedes cambiarlo a Manual Trigger si prefieres controlar cuándo re-indexas."
+    },
+    {
+      "parameters": {},
+      "id": "0d7e427e-c719-4e65-b800-d68432ee39b5",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -928,
+        288
+      ],
+      "notes": "Úsalo para la primera ejecución o cuando actualices el documento de procesos."
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "1t_Mslkxr35Xy4D3Q3gAeP7Oo1IexlhLn",
+          "mode": "list",
+          "cachedResultName": "TERMINOS_DEVOLUCION_PEDIDO_ENTREGA.md",
+          "cachedResultUrl": "https://drive.google.com/file/d/1t_Mslkxr35Xy4D3Q3gAeP7Oo1IexlhLn/view?usp=drivesdk"
+        },
+        "options": {}
+      },
+      "id": "5954dc13-6863-43a5-964f-59240732cd0f",
+      "name": "Google Drive - Descargar Documento",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -672,
+        96
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "tznrl5S35FyVq6DR",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "destinationKey": "texto_documento",
+        "options": {}
+      },
+      "id": "65f242c6-ec21-4789-abc4-767763af4bca",
+      "name": "Extract from File - Texto Plano",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Limpia el texto y prepara metadata para cada chunk\nconst texto = $input.first().json.texto_documento || '';\n\n// Elimina lineas vacias multiples y espacios extra\nconst textoLimpio = texto\n  .replace(/\\r\\n/g, '\\n')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\n\nconst ahora = new Date().toISOString();\n\nreturn [{\n  json: {\n    texto_limpio: textoLimpio,\n    longitud_caracteres: textoLimpio.length,\n    fecha_indexacion: ahora,\n    nombre_documento: 'TERMINOS_DEVOLUCION_PEDIDO_ENTREGA'\n  }\n}];"
+      },
+      "id": "847b0bc8-18fa-47c3-a102-18991520440c",
+      "name": "Preparar Texto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 500,
+        "chunkOverlap": 50,
+        "options": {
+          "splitCode": "markdown"
+        }
+      },
+      "id": "86601766-1f22-4b65-87bc-71db0baf5b5e",
+      "name": "Text Splitter - Chunking",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        144,
+        416
+      ],
+      "notes": "500 tokens por chunk con 50 de overlap. Optimo para documentos de politicas con tu hardware (Ryzen 5 3500U + 16GB RAM)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nodo de confirmacion: muestra cuantos chunks se indexaron\nconst items = $input.all();\nconst ahora = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });\n\nconsole.log(`[RAG Ingesta] Indexacion completada a las ${ahora}`);\nconsole.log(`[RAG Ingesta] Items procesados: ${items.length}`);\n\nreturn [{\n  json: {\n    status: 'OK',\n    mensaje: `Documento indexado exitosamente`,\n    timestamp: ahora,\n    chunks_indexados: items.length\n  }\n}];"
+      },
+      "id": "64daad2f-9edf-4a42-b268-56557399ecef",
+      "name": "Log Confirmacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Manejador de error del flujo de ingesta\nconst error = $input.first();\nconst ahora = new Date().toISOString();\n\nconsole.error('[RAG Ingesta] ERROR:', JSON.stringify(error.json));\n\n// Puedes conectar aqui un nodo de Gmail/Telegram para alertarte\nreturn [{\n  json: {\n    status: 'ERROR',\n    mensaje: 'Fallo la indexacion del documento de procesos',\n    error_detalle: error.json,\n    timestamp: ahora,\n    accion: 'El Flujo B puede seguir usando el indice anterior si existe'\n  }\n}];"
+      },
+      "id": "cacfdb46-d98f-4bc4-b371-fb34522a3522",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        -112
+      ],
+      "notes": "Conecta este nodo al trigger de error del flujo. En n8n: Settings del flujo > Error Workflow."
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.texto_limpio }}",
+        "textSplittingMode": "custom",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        80,
+        272
+      ],
+      "id": "98dfddbf-b9fa-474d-aa9e-b76c3ddaff7c",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "id": "6fd3c6a4-3bf5-4090-aa23-aa18e951d970",
+      "name": "Ollama Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        304
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "pzfZ3NmewlsgEMqI",
+          "name": "Ollama account"
+        }
+      },
+      "notes": "Primero ejecuta: ollama pull nomic-embed-text . Es un modelo liviano de 270MB, perfecto para CPU."
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        96
+      ],
+      "id": "93ad4502-2e28-4fe0-a46c-28bf385ac3bb",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "JcC2kpFbMdeSsMoL",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Descargar Documento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Descargar Documento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive - Descargar Documento": {
+      "main": [
+        [
+          {
+            "node": "Extract from File - Texto Plano",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File - Texto Plano": {
+      "main": [
+        [
+          {
+            "node": "Preparar Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Texto": {
+      "main": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Splitter - Chunking": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Log Confirmacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "16923761-fed0-4d29-b573-c57900f1e8a3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "608c753f374032eedb8b6c161b47f65b7d071087750ae106adef96cd59f7df75"
+  },
+  "id": "oV58rSSdD95NSPJJ",
+  "tags": [
+    {
+      "updatedAt": "2026-05-21T19:22:12.443Z",
+      "createdAt": "2026-05-21T19:22:12.443Z",
+      "id": "APCRyha285MLWqep",
+      "name": "Analisis"
+    },
+    {
+      "updatedAt": "2026-05-21T19:22:19.863Z",
+      "createdAt": "2026-05-21T19:22:19.863Z",
+      "id": "HtV4o6YNGlBEEvTJ",
+      "name": "Documento"
+    }
+  ]
+}

@@ -1,0 +1,472 @@
+{
+  "name": "Tool: Cache Semantico [Respuestas Correos]",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cache-semantico",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2d20ec0b-e60c-475f-be2b-af4152d3ad61",
+      "name": "Webhook",
+      "webhookId": "34880629-77d4-4a91-94f8-e523b8c1bc52"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecihojwltabtmbvisobo.supabase.co/rest/v1/rpc/buscar_cache_semantico?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjaWhvandsdGFidG1idmlzb2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzOTI4OTMsImV4cCI6MjA5NDk2ODg5M30.XcwMmoxLu9sMkq-h655TBPb9-cwDl6hJtdpdxurzesw",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query_embedding\": \"{{ '[' + $('Generar Embedding').item.json.embedding.join(',') + ']' }}\",\n  \"umbral\": 0.85,\n  \"limite\": 1\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        -128
+      ],
+      "id": "d85d7824-c67f-40a7-9350-a8fc48b266a1",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const resultado = $input.first().json;\nconst embedding = $('Generar Embedding').first().json.embedding;\nconst texto = $('Webhook').first().json.body.texto;\nconst accion = $('Webhook').first().json.body.accion; // 'consultar' o 'guardar'\n\n// Si viene a guardar, no evalúa hit/miss\nif (accion === 'guardar') {\n  return {\n    json: {\n      accion: 'guardar',\n      embedding: embedding,\n      texto: texto,\n      respuesta: $('Webhook').first().json.body.respuesta,\n      tipo: $('Webhook').first().json.body.tipo,\n      seccion: $('Webhook').first().json.body.seccion\n    }\n  };\n}\n\n// Si viene a consultar, evalúa el resultado\nif (resultado && Array.isArray(resultado) && resultado.length > 0) {\n  return {\n    json: {\n      accion: 'consultar',\n      cache_hit: true,\n      similitud: resultado[0].similitud,\n      cache_id: resultado[0].cache_id,\n      respuesta: resultado[0].respuesta,\n      embedding: embedding,\n      texto: texto\n    }\n  };\n}\n\nreturn {\n  json: {\n    accion: 'consultar',\n    cache_hit: false,\n    similitud: 0,\n    cache_id: null,\n    respuesta: null,\n    embedding: embedding,\n    texto: texto\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "4822d02e-3e1e-4f72-8aeb-9ff4acc08bd4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.accion === 'consultar' && $json.cache_hit === true }}",
+                    "rightValue": "Hit",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "a17b1ff2-30cb-4b29-a465-10f7b6919cb8"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Hit"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ca043d47-095a-43d7-9798-7da1f152ed14",
+                    "leftValue": "={{ $json.accion === 'consultar' && $json.cache_hit === false }}",
+                    "rightValue": "Miss",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Miss"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "afaf584b-1b5e-42f0-8185-ca4f50f76eaa",
+                    "leftValue": "={{ $json.accion === 'guardar' }}",
+                    "rightValue": "Guardar",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Guardar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1024,
+        -16
+      ],
+      "id": "490993c8-162d-420f-bcbd-f4f8f9873f60",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "semantic_cache",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "=={{ $json.cache_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "uso_count",
+              "fieldValue": "=={{ $json.uso_count + 1 }}"
+            },
+            {
+              "fieldId": "last_used",
+              "fieldValue": "=={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -176
+      ],
+      "id": "c3e2fd87-61d3-4cd1-a518-d9b75849e7a1",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "JcC2kpFbMdeSsMoL",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200,
+          "responseKey": ""
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1456,
+        0
+      ],
+      "id": "5dc2ac3e-e545-443c-99b2-30b87d42da70",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "tableId": "semantic_cache",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "pregunta",
+              "fieldValue": "=={{ $json.texto }}"
+            },
+            {
+              "fieldId": "embedding",
+              "fieldValue": "=={{ '[' + $json.embedding.join(',') + ']' }}"
+            },
+            {
+              "fieldId": "respuesta",
+              "fieldValue": "=={{ JSON.stringify($json.respuesta) }}"
+            },
+            {
+              "fieldId": "tipo",
+              "fieldValue": "=={{ $json.tipo }}"
+            },
+            {
+              "fieldId": "seccion",
+              "fieldValue": "=={{ $json.seccion }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        176
+      ],
+      "id": "dcb3e2b6-5a46-4478-bc0b-690ac19df34b",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "JcC2kpFbMdeSsMoL",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1824,
+        -16
+      ],
+      "id": "751fdeb7-da24-40aa-8bfd-c3f189a6da31",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/embeddings",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"nomic-embed-text\",\n  \"prompt\": \"={{ $json.body.texto }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "335b0843-7151-4695-b2ce-0bc470fe876e",
+      "name": "Generar Embedding"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "aebca2b7-934f-4b32-af10-ca6c6a35a5c4",
+              "leftValue": "= ={{ $('Webhook').item.json.body.accion }}",
+              "rightValue": "consultar",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "d177c052-f5e5-48ba-9951-b83a77b798c9",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generar Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        []
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Embedding": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2925eb35-4783-48e3-9253-fff0ff1598bf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "608c753f374032eedb8b6c161b47f65b7d071087750ae106adef96cd59f7df75"
+  },
+  "id": "b5N7m9783bp5AnsN",
+  "tags": [
+    {
+      "updatedAt": "2026-05-21T19:21:16.476Z",
+      "createdAt": "2026-05-21T19:21:16.476Z",
+      "id": "qmsc0u4fHmJuf8Xk",
+      "name": "DB"
+    },
+    {
+      "updatedAt": "2026-05-21T19:21:22.136Z",
+      "createdAt": "2026-05-21T19:21:22.136Z",
+      "id": "nbzOzfY70YyJfFf8",
+      "name": "SupaBase"
+    },
+    {
+      "updatedAt": "2026-05-21T19:21:36.586Z",
+      "createdAt": "2026-05-21T19:21:36.586Z",
+      "id": "fNyOkcaAHqHoF4Fd",
+      "name": "Tool"
+    }
+  ]
+}
